@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>紀家烘焙坊 - 蛋黃酥預購系統</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans min-h-screen py-10 px-4">
+
+    <div class="max-w-2xl mx-auto space-y-8">
+        
+        <!-- 頁首標題與公告 -->
+        <div class="text-center space-y-3">
+            <h1 class="text-3xl font-bold text-amber-700">🥮 紀家烘焙坊 - 蛋黃酥預購系統</h1>
+            
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-left text-xs text-amber-900 space-y-1.5 shadow-xs">
+                <p class="font-bold text-amber-800 text-sm">✨ 產品特色與食用保存須知：</p>
+                <p>• <strong>成份說明：</strong>本產品使用<strong>植物油</strong>製作，<strong>蛋奶素可食用</strong>（不含豬油成份）。</p>
+                <p>• <strong>保存期限：</strong>常溫保存一個禮拜，產品上有註明其有效期限。</p>
+                <p>• <strong>貼心提醒：</strong>若您拿到的產品為剛出爐的，請務必放涼再闔上，以免產品變質。</p>
+            </div>
+        </div>
+
+        <!-- 模式切換按鈕 -->
+        <div class="flex rounded-xl bg-gray-200 p-1 shadow-inner">
+            <button type="button" id="tabPickup" onclick="switchMode('pickup')" class="flex-1 py-2.5 rounded-lg font-bold text-sm transition duration-200 bg-amber-600 text-white shadow-sm cursor-pointer">
+                🛍️ 現場自取預訂
+            </button>
+            <button type="button" id="tabDelivery" onclick="switchMode('delivery')" class="flex-1 py-2.5 rounded-lg font-bold text-sm transition duration-200 text-gray-600 hover:text-gray-900 cursor-pointer">
+                📦 宅配到府預購
+            </button>
+        </div>
+
+        <!-- 填寫訂單區 -->
+        <div id="formBlock" class="bg-white shadow-sm rounded-xl p-6 border border-gray-100">
+            <h2 id="formTitle" class="text-xl font-bold text-gray-700 mb-4 pb-2 border-b border-gray-100">✨ 填寫現場自取預訂單</h2>
+            
+            <form id="orderForm" class="space-y-5">
+                <input type="hidden" id="orderMode" value="pickup">
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label id="nameLabel" class="block text-sm font-medium text-gray-600 mb-1">取貨人姓名 *</label>
+                        <input type="text" id="buyerName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    </div>
+                    <div>
+                        <label id="phoneLabel" class="block text-sm font-medium text-gray-600 mb-1">取貨人手機 *</label>
+                        <input type="tel" id="buyerPhone" required placeholder="如：0912345678" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    </div>
+                </div>
+
+                <!-- 宅配專用欄位區 -->
+                <div id="deliveryFields" class="hidden space-y-4 pt-2 border-t border-gray-100">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">收件人地址 *</label>
+                        <input type="text" id="receiverAddress" placeholder="請填寫完整配送地址" oninput="calculateCart()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    </div>
+                    
+                    <div class="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-1">電子發票開立選項 *</label>
+                            <select id="invoiceType" onchange="toggleTaxFields()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                                <option value="個人電子發票">個人電子發票</option>
+                                <option value="公司用電子發票(統編)">公司用電子發票 (需打統編)</option>
+                            </select>
+                        </div>
+                        <div id="taxFields" class="hidden pt-1">
+                            <label class="block text-sm font-medium text-gray-600 mb-1">統一編號 *</label>
+                            <input type="text" id="taxId" placeholder="請輸入8碼統編" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 日期與時段選擇區 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label id="dateLabel" class="block text-sm font-medium text-gray-600 mb-1">取貨日期 *</label>
+                        <input type="date" id="orderDate" min="2026-09-30" required onchange="validateDate()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                        <p id="dateNoticeText" class="text-xs text-red-600 mt-1 font-medium hidden">⚠️ 宅配僅能選擇週一到週五的出貨日，請重新選擇！</p>
+                        <!-- 宅配預計到貨時間提示 -->
+                        <p id="estimatedArrival" class="text-xs text-amber-700 mt-1 font-bold hidden"></p>
+                    </div>
+                    
+                    <!-- 自取時段選擇 -->
+                    <div id="timeSlotContainer">
+                        <label class="block text-sm font-medium text-gray-600 mb-1">取貨大約時段 *</label>
+                        <select id="timeSlot" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                            <option value="">-- 請選擇大約取貨時間 --</option>
+                            <option value="上午 09:00 - 11:00 (大約 09:00 後)">上午 09:00 - 11:00 (大約 09:00 後)</option>
+                            <option value="中午 11:00 - 13:00 (大約 11:00 後)">中午 11:00 - 13:00 (大約 11:00 後)</option>
+                            <option value="下午 14:00 - 16:00 (大約 14:00 後)">下午 14:00 - 16:00 (大約 14:00 後)</option>
+                            <option value="傍晚 16:00 - 18:00 (大約 16:00 後)">傍晚 16:00 - 18:00 (大約 16:00 後)</option>
+                        </select>
+                    </div>
+
+                    <!-- 宅配指定時段選擇 -->
+                    <div id="deliveryTimeSlotContainer" class="hidden">
+                        <label class="block text-sm font-medium text-gray-600 mb-1">希望到貨時段 *</label>
+                        <select id="deliveryTimeSlot" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                            <option value="不指定">不指定</option>
+                            <option value="13點前">13點前</option>
+                            <option value="14~18點前">14~18點前</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="pickupNotice" class="bg-orange-50 border border-orange-200 rounded-xl p-3 text-xs text-orange-800 space-y-1">
+                    <p class="font-bold">⚠️ 自取注意事項：</p>
+                    <p>• 自取最晚時間為 <strong>18:00前</strong>，請務必於 18:00 前取貨。</p>
+                    <p>• <strong>貼心提醒：</strong>若訂購數量未達 12 顆（未滿 2 盒 6 入裝），系統將無法提供線上預訂，請於 <strong>17:00 前直接至門市購買即可</strong>。</p>
+                </div>
+
+                <div id="deliveryNotice" class="hidden bg-orange-50 border border-orange-200 rounded-xl p-3 text-xs text-orange-800 space-y-1">
+                    <p class="font-bold">⚠️ 宅配注意事項：</p>
+                    <p>• 希望配達日期不等於實際到貨日期。</p>
+                    <p>• 恕不負責運送端之延誤及損失（若可接受再填單）。</p>
+                    <p>• 為維護運送品質，6入及15入無法混裝。</p>
+                    <p>• 達免運門檻（或箱購方案）之訂單，宜花東地區同樣免運費。</p>
+                </div>
+
+                <!-- 產品規格 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-3 font-bold">🛒 選擇蛋黃酥規格與數量 *</label>
+                    
+                    <div id="pickupProductBox" class="space-y-3">
+                        <div class="p-3 border border-gray-200 rounded-xl flex items-center justify-between bg-gray-50/50">
+                            <div>
+                                <span class="text-sm font-bold text-gray-800">6入禮盒</span>
+                                <span class="text-amber-700 text-sm font-bold ml-2">(NT$ 300 / 盒)</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="number" id="pickup_qty_6" min="0" value="0" oninput="calculateCart()" class="w-20 px-2 py-1 text-center border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm font-bold">
+                                <span class="text-xs text-gray-500">盒</span>
+                            </div>
+                        </div>
+
+                        <div class="p-3 border border-gray-200 rounded-xl flex items-center justify-between bg-gray-50/50">
+                            <div>
+                                <span class="text-sm font-bold text-gray-800">12入禮盒</span>
+                                <span class="text-amber-700 text-sm font-bold ml-2">(NT$ 600 / 盒)</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="number" id="pickup_qty_12" min="0" value="0" oninput="calculateCart()" class="w-20 px-2 py-1 text-center border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm font-bold">
+                                <span class="text-xs text-gray-500">盒</span>
+                            </div>
+                        </div>
+
+                        <div class="p-3 border border-gray-200 rounded-xl flex items-center justify-between bg-gray-50/50">
+                            <div>
+                                <span class="text-sm font-bold text-gray-800">15入禮盒</span>
+                                <span class="text-amber-700 text-sm font-bold ml-2">(NT$ 750 / 盒)</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="number" id="pickup_qty_15" min="0" value="0" oninput="calculateCart()" class="w-20 px-2 py-1 text-center border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm font-bold">
+                                <span class="text-xs text-gray-500">盒</span>
+                            </div>
+                        </div>
+                        <p id="pickupMinNotice" class="text-xs text-red-600 font-bold hidden">⚠️ 現場自取總數量須滿 12 顆（含）以上方可預訂（未滿 12 顆請直接至門市購買）！</p>
+                    </div>
+
+                    <div id="deliveryProductBox" class="hidden space-y-3">
+                        <div class="flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:bg-gray-50/50">
+                            <label class="flex items-center space-x-3 cursor-pointer text-sm font-medium text-gray-700">
+                                <input type="checkbox" name="productCheck" id="check_1" value="6入 × 4盒" data-price="1350" onchange="calculateCart()" class="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500">
+                                <span>6入 × 4盒 (24顆) <span class="text-amber-700 font-bold ml-1">(NT$ 1,350)</span> <span class="text-xs text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded ml-1 font-bold">免運費</span></span>
+                            </label>
+                            <input type="number" id="qty_1" min="1" value="1" disabled oninput="calculateCart()" class="w-16 px-2 py-1 text-center border border-gray-300 rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm">
+                        </div>
+
+                        <div class="flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:bg-gray-50/50">
+                            <label class="flex items-center space-x-3 cursor-pointer text-sm font-medium text-gray-700">
+                                <input type="checkbox" name="productCheck" id="check_2" value="6入 × 10盒" data-price="3000" onchange="calculateCart()" class="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500">
+                                <span>6入 × 10盒 (60顆) <span class="text-amber-700 font-bold ml-1">(NT$ 3,000)</span> <span class="text-xs text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded ml-1 font-bold">免運費</span></span>
+                            </label>
+                            <input type="number" id="qty_2" min="1" value="1" disabled oninput="calculateCart()" class="w-16 px-2 py-1 text-center border border-gray-300 rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm">
+                        </div>
+
+                        <div class="flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:bg-gray-50/50">
+                            <label class="flex items-center space-x-3 cursor-pointer text-sm font-medium text-gray-700">
+                                <input type="checkbox" name="productCheck" id="check_3" value="6入 × 15盒" data-price="4500" onchange="calculateCart()" class="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500">
+                                <span>6入 × 15盒 (90顆) <span class="text-amber-700 font-bold ml-1">(NT$ 4,500)</span> <span class="text-xs text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded ml-1 font-bold">免運費</span></span>
+                            </label>
+                            <input type="number" id="qty_3" min="1" value="1" disabled oninput="calculateCart()" class="w-16 px-2 py-1 text-center border border-gray-300 rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm">
+                        </div>
+
+                        <div class="flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:bg-gray-50/50">
+                            <label class="flex items-center space-x-3 cursor-pointer text-sm font-medium text-gray-700">
+                                <input type="checkbox" name="productCheck" id="check_12" value="12入禮盒" data-price="600" onchange="calculateCart()" class="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500">
+                                <div>
+                                    <span>12入禮盒 <span class="text-amber-700 font-bold ml-1">(NT$ 600 / 盒)</span></span>
+                                    <span class="block text-xs text-gray-500">🚚 1~2盒運費170，3~6盒運費210，7盒up免基本運費</span>
+                                </div>
+                            </label>
+                            <input type="number" id="qty_12" min="1" value="1" disabled oninput="calculateCart()" class="w-16 px-2 py-1 text-center border border-gray-300 rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm">
+                        </div>
+
+                        <div class="flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:bg-gray-50/50">
+                            <label class="flex items-center space-x-3 cursor-pointer text-sm font-medium text-gray-700">
+                                <input type="checkbox" name="productCheck" id="check_15" value="15入禮盒" data-price="750" onchange="calculateCart()" class="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500">
+                                <div>
+                                    <span>15入禮盒 <span class="text-amber-700 font-bold ml-1">(NT$ 750 / 盒)</span></span>
+                                    <span class="block text-xs text-gray-500">🚚 1~2盒運費170，3~4盒運費210，5盒up免基本運費</span>
+                                </div>
+                            </label>
+                            <input type="number" id="qty_15" min="1" value="1" disabled oninput="calculateCart()" class="w-16 px-2 py-1 text-center border border-gray-300 rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 金額小計 -->
+                <div class="bg-amber-50/70 border border-amber-100 rounded-xl p-4 space-y-2 text-sm text-gray-700">
+                    <div class="flex justify-between">
+                        <span>已選方案：<span id="summaryCartText" class="font-medium text-gray-800">無產品</span></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>商品總金額：</span>
+                        <span class="font-bold">NT$ <span id="summaryProductPrice">0</span></span>
+                    </div>
+                    <div id="shippingFeeRow" class="flex justify-between hidden">
+                        <span>運費金額：</span>
+                        <span class="font-bold">NT$ <span id="summaryShippingFee">0</span> <span id="shippingDesc" class="text-xs text-amber-800 font-bold ml-1"></span></span>
+                    </div>
+                    <div class="border-t border-amber-200 pt-2 flex justify-between items-center text-base">
+                        <span class="font-bold text-gray-800">應付總金額：</span>
+                        <div class="text-2xl font-black text-amber-700">NT$ <span id="totalAmount">0</span></div>
+                    </div>
+                </div>
+
+                <button type="submit" id="submitBtn" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium py-2.5 px-4 rounded-lg transition duration-200 shadow-md cursor-pointer">
+                    確認送出預訂
+                </button>
+            </form>
+        </div>
+
+        <!-- 確認訂單資訊彈跳視窗 (Modal) -->
+        <div id="confirmModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl border border-gray-100">
+                <h3 class="text-xl font-bold text-amber-700 border-b pb-2">📋 請再次確認您的訂單資訊</h3>
+                <div id="modalContent" class="space-y-2 text-sm text-gray-700 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <!-- 動態填入確認資訊 -->
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="closeConfirmModal()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2.5 rounded-xl transition cursor-pointer">
+                        返回修改
+                    </button>
+                    <button type="button" id="confirmSubmitBtn" onclick="executeSubmit()" class="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-medium py-2.5 rounded-xl transition cursor-pointer">
+                        確認無誤，送出訂單
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 成功頁面 (自取) -->
+        <div id="successPagePickup" class="hidden bg-white shadow-md rounded-2xl p-8 border border-emerald-100 text-center space-y-6">
+            <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-3xl mx-auto font-bold">✓</div>
+            <div class="space-y-2">
+                <h2 class="text-2xl font-black text-emerald-700">🎉 預訂已成功送出！</h2>
+                <p class="text-gray-600 text-sm">您的訂單編號為：<span id="finalOrderIdPickup" class="font-mono font-bold bg-gray-100 px-2 py-0.5 rounded text-gray-800">---</span></p>
+                <p class="text-md font-bold text-amber-700">應付總金額為：NT$ <span id="finalPricePickup">0</span></p>
+            </div>
+            <button onclick="window.location.reload()" class="block w-full bg-gray-100 hover:bg-gray-200 text-gray-600 py-2.5 rounded-xl transition text-sm font-medium cursor-pointer">
+                返回填寫新訂單
+            </button>
+        </div>
+
+        <!-- 成功頁面 (宅配 - 含匯款資訊) -->
+        <div id="successPageDelivery" class="hidden bg-white shadow-md rounded-2xl p-8 border border-amber-100 text-left space-y-5">
+            <div class="text-center space-y-2">
+                <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-3xl mx-auto font-bold">✓</div>
+                <h2 class="text-2xl font-black text-amber-700">🎉 宅配預訂已成功送出！</h2>
+            </div>
+            
+            <div class="bg-amber-50/70 border border-amber-200 rounded-xl p-5 space-y-2 text-sm text-gray-800">
+                <p class="font-bold text-amber-900 border-b border-amber-200 pb-2">📦 您本次的訂單資訊：</p>
+                <p>• <strong>訂單編號：</strong><span id="finalOrderIdDelivery" class="font-mono font-bold text-gray-900">---</span></p>
+                <p>• <strong>總金額：</strong><span class="font-bold text-amber-700 text-base">NT$ <span id="finalPriceDelivery">0</span></span></p>
+                
+                <div class="pt-2 border-t border-amber-200 space-y-1">
+                    <p class="font-bold text-amber-900">💳 匯款帳號資訊：</p>
+                    <p>• 彰化五信 總行代號：<strong>161</strong></p>
+                    <p>• 分行：<strong>華山分社</strong></p>
+                    <p>• 帳號：<strong>00022111088890</strong></p>
+                    <p>• 戶名：<strong>紀家烘焙坊-吳亭緯</strong></p>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 text-xs text-gray-700 space-y-2 text-center">
+                <p class="font-medium">匯款完成請您通知官方line (<span class="font-bold text-amber-700">ID: still_ji</span>)，</p>
+                <p>並提供<strong>帳戶後5碼</strong>，以利客服人員回傳宅配單給您確認</p>
+                <div class="pt-2">
+                    <a href="https://lin.ee/9199Z3x" target="_blank" class="inline-block bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-lg transition shadow-xs">
+                        加官方 LINE 通知客服
+                    </a>
+                </div>
+            </div>
+
+            <button onclick="window.location.reload()" class="block w-full bg-gray-100 hover:bg-gray-200 text-gray-600 py-2.5 rounded-xl transition text-sm font-medium cursor-pointer">
+                返回填寫新訂單
+            </button>
+        </div>
+
+        <!-- 訂單查詢區 -->
+        <div id="searchBlock" class="bg-white shadow-sm rounded-xl p-6 border border-gray-100">
+            <h2 class="text-xl font-bold text-gray-700 mb-4 pb-2 border-b border-gray-100">🔍 訂單即時查詢</h2>
+            <p class="text-xs text-gray-500 mb-3">您可以透過訂單編號或手機號碼查詢您的預訂進度。</p>
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="searchKey" placeholder="請輸入「訂單編號」或「手機號碼」" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm">
+                <button onclick="searchOrder()" class="bg-gray-800 hover:bg-gray-900 text-white px-5 py-2 rounded-lg font-medium transition duration-200 text-sm cursor-pointer">查詢</button>
+            </div>
+            <div id="searchResult" class="hidden space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-200 text-sm"></div>
+        </div>
+
+    </div>
+
+    <script>
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbwyx3EajqWD110uda3X6ZdWLJ2byk9WLDac5OR54Fl-ZFgkqIJuC5ygOIj1Kl-GQRpQ/exec";
+        let pendingOrderData = null;
+
+        function switchMode(mode) {
+            const tabPickup = document.getElementById('tabPickup');
+            const tabDelivery = document.getElementById('tabDelivery');
+            const orderMode = document.getElementById('orderMode');
+            const formTitle = document.getElementById('formTitle');
+            const nameLabel = document.getElementById('nameLabel');
+            const phoneLabel = document.getElementById('phoneLabel');
+            const deliveryFields = document.getElementById('deliveryFields');
+            const dateLabel = document.getElementById('dateLabel');
+            const timeSlotContainer = document.getElementById('timeSlotContainer');
+            const deliveryTimeSlotContainer = document.getElementById('deliveryTimeSlotContainer');
+            const pickupNotice = document.getElementById('pickupNotice');
+            const deliveryNotice = document.getElementById('deliveryNotice');
+            const dateNoticeText = document.getElementById('dateNoticeText');
+            const estimatedArrival = document.getElementById('estimatedArrival');
+            
+            const pickupProductBox = document.getElementById('pickupProductBox');
+            const deliveryProductBox = document.getElementById('deliveryProductBox');
+
+            orderMode.value = mode;
+
+            if (mode === 'pickup') {
+                tabPickup.className = "flex-1 py-2.5 rounded-lg font-bold text-sm transition duration-200 bg-amber-600 text-white shadow-sm cursor-pointer";
+                tabDelivery.className = "flex-1 py-2.5 rounded-lg font-bold text-sm transition duration-200 text-gray-600 hover:text-gray-900 cursor-pointer";
+                formTitle.innerText = "✨ 填寫現場自取預訂單";
+                nameLabel.innerText = "取貨人姓名 *";
+                phoneLabel.innerText = "取貨人手機 *";
+                deliveryFields.classList.add('hidden');
+                document.getElementById('receiverAddress').required = false;
+                dateLabel.innerText = "取貨日期 *";
+                timeSlotContainer.classList.remove('hidden');
+                deliveryTimeSlotContainer.classList.add('hidden');
+                document.getElementById('timeSlot').required = true;
+                pickupNotice.classList.remove('hidden');
+                deliveryNotice.classList.add('hidden');
+                dateNoticeText.classList.add('hidden');
+                estimatedArrival.classList.add('hidden');
+
+                pickupProductBox.classList.remove('hidden');
+                deliveryProductBox.classList.add('hidden');
+            } else {
+                tabDelivery.className = "flex-1 py-2.5 rounded-lg font-bold text-sm transition duration-200 bg-amber-600 text-white shadow-sm cursor-pointer";
+                tabPickup.className = "flex-1 py-2.5 rounded-lg font-bold text-sm transition duration-200 text-gray-600 hover:text-gray-900 cursor-pointer";
+                formTitle.innerText = "✨ 填寫宅配到府預購單";
+                nameLabel.innerText = "收件人姓名 *";
+                phoneLabel.innerText = "收件人電話 *";
+                deliveryFields.classList.remove('hidden');
+                document.getElementById('receiverAddress').required = true;
+                dateLabel.innerText = "希望出貨日 *";
+                timeSlotContainer.classList.add('hidden');
+                deliveryTimeSlotContainer.classList.remove('hidden');
+                document.getElementById('timeSlot').required = false;
+                pickupNotice.classList.add('hidden');
+                deliveryNotice.classList.remove('hidden');
+
+                pickupProductBox.classList.add('hidden');
+                deliveryProductBox.classList.remove('hidden');
+
+                validateDate();
+            }
+            calculateCart();
+        }
+
+        function validateDate() {
+            const mode = document.getElementById('orderMode').value;
+            const dateInput = document.getElementById('orderDate').value;
+            const dateNoticeText = document.getElementById('dateNoticeText');
+            const estimatedArrival = document.getElementById('estimatedArrival');
+            const submitBtn = document.getElementById('submitBtn');
+
+            if (dateInput && dateInput < "2026-09-30") {
+                alert("❌ 預訂日期最早需從 2026 年 9 月 30 日（含）開始選擇！");
+                document.getElementById('orderDate').value = "2026-09-30";
+                return;
+            }
+
+            if (mode === 'delivery' && dateInput) {
+                let dObj1 = new Date(dateInput);
+                dObj1.setDate(dObj1.getDate() + 1);
+                let m1 = String(dObj1.getMonth() + 1).padStart(2, '0');
+                let d1 = String(dObj1.getDate()).padStart(2, '0');
+                let days = ['日', '一', '二', '三', '四', '五', '六'];
+                let wk1 = days[dObj1.getDay()];
+
+                let dObj2 = new Date(dateInput);
+                dObj2.setDate(dObj2.getDate() + 2);
+                let m2 = String(dObj2.getMonth() + 1).padStart(2, '0');
+                let d2 = String(dObj2.getDate()).padStart(2, '0');
+                let wk2 = days[dObj2.getDay()];
+
+                estimatedArrival.innerText = `📦 預計到貨日：${m1}/${d1}(${wk1}) ~ ${m2}/${d2}(${wk2}) 左右`;
+                estimatedArrival.classList.remove('hidden');
+
+                const dayOfWeek = new Date(dateInput).getDay();
+                if (dayOfWeek === 0 || dayOfWeek === 6) {
+                    dateNoticeText.classList.remove('hidden');
+                    submitBtn.disabled = true;
+                    submitBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                    submitBtn.classList.remove('bg-amber-600', 'hover:bg-amber-700');
+                } else {
+                    dateNoticeText.classList.add('hidden');
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                    submitBtn.classList.add('bg-amber-600', 'hover:bg-amber-700');
+                }
+            } else {
+                dateNoticeText.classList.add('hidden');
+                estimatedArrival.classList.add('hidden');
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                submitBtn.classList.add('bg-amber-600', 'hover:bg-amber-700');
+            }
+        }
+
+        function toggleTaxFields() {
+            const invoiceType = document.getElementById('invoiceType').value;
+            const taxFields = document.getElementById('taxFields');
+            if (invoiceType === "公司用電子發票(統編)") {
+                taxFields.classList.remove('hidden');
+                document.getElementById('taxId').required = true;
+            } else {
+                taxFields.classList.add('hidden');
+                document.getElementById('taxId').required = false;
+            }
+        }
+
+        function calculateCart() {
+            const mode = document.getElementById('orderMode').value;
+            let productPrice = 0;
+            let selectedItems = [];
+            const submitBtn = document.getElementById('submitBtn');
+
+            if (mode === 'pickup') {
+                const q6 = parseInt(document.getElementById('pickup_qty_6').value) || 0;
+                const q12 = parseInt(document.getElementById('pickup_qty_12').value) || 0;
+                const q15 = parseInt(document.getElementById('pickup_qty_15').value) || 0;
+
+                const totalPieces = (q6 * 6) + (q12 * 12) + (q15 * 15);
+                const pickupMinNotice = document.getElementById('pickupMinNotice');
+
+                if (q6 > 0) { productPrice += q6 * 300; selectedItems.push(`6入禮盒 × ${q6}盒`); }
+                if (q12 > 0) { productPrice += q12 * 600; selectedItems.push(`12入禮盒 × ${q12}盒`); }
+                if (q15 > 0) { productPrice += q15 * 750; selectedItems.push(`15入禮盒 × ${q15}盒`); }
+
+                if (totalPieces > 0 && totalPieces < 12) {
+                    pickupMinNotice.classList.remove('hidden');
+                    submitBtn.disabled = true;
+                    submitBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                    submitBtn.classList.remove('bg-amber-600', 'hover:bg-amber-700');
+                } else {
+                    pickupMinNotice.classList.add('hidden');
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                    submitBtn.classList.add('bg-amber-600', 'hover:bg-amber-700');
+                }
+
+                document.getElementById('shippingFeeRow').classList.add('hidden');
+                const totalAmount = productPrice;
+
+                document.getElementById('summaryCartText').innerText = selectedItems.length > 0 ? selectedItems.join('、') : '無產品';
+                document.getElementById('summaryProductPrice').innerText = productPrice.toLocaleString();
+                document.getElementById('totalAmount').innerText = totalAmount.toLocaleString();
+
+                return { productPrice, shippingFee: 0, totalAmount, specText: selectedItems.join('、'), totalPieces };
+
+            } else {
+                const checkboxes = document.querySelectorAll('input[name="productCheck"]');
+                let q12Count = 0;
+                let q15Count = 0;
+                let hasFreeShippingItem = false;
+
+                checkboxes.forEach((cb) => {
+                    const idStr = cb.id.replace('check_', '');
+                    const qtyInput = document.getElementById(`qty_${idStr}`);
+
+                    if (cb.checked) {
+                        qtyInput.disabled = false;
+                        qtyInput.classList.remove('bg-gray-100');
+                        
+                        let qty = parseInt(qtyInput.value);
+                        if (isNaN(qty) || qty < 1) { qty = 1; qtyInput.value = 1; }
+
+                        const price = parseInt(cb.getAttribute('data-price'));
+                        productPrice += (price * qty);
+
+                        if (cb.id === 'check_1' || cb.id === 'check_2' || cb.id === 'check_3') {
+                            selectedItems.push(`${cb.value} × ${qty}組`);
+                            hasFreeShippingItem = true;
+                        } else if (cb.id === 'check_12') {
+                            selectedItems.push(`12入禮盒 × ${qty}盒`);
+                            q12Count += qty;
+                        } else if (cb.id === 'check_15') {
+                            selectedItems.push(`15入禮盒 × ${qty}盒`);
+                            q15Count += qty;
+                        }
+                    } else {
+                        qtyInput.disabled = true;
+                        qtyInput.classList.add('bg-gray-100');
+                    }
+                });
+
+                const is12Free = (q12Count >= 7);
+                const is15Free = (q15Count >= 5);
+                if (is12Free || is15Free) { hasFreeShippingItem = true; }
+
+                let shippingFee = 0;
+                let shippingDescText = "";
+                const shippingFeeRow = document.getElementById('shippingFeeRow');
+                shippingFeeRow.classList.remove('hidden');
+
+                if (selectedItems.length > 0) {
+                    if (hasFreeShippingItem) {
+                        shippingFee = 0;
+                        shippingDescText = "(🎉 已達免運門檻)";
+                    } else {
+                        if (q12Count > 0 && q15Count === 0) {
+                            shippingFee = (q12Count <= 2) ? 170 : 210;
+                            shippingDescText = (q12Count <= 2) ? "(12入 1~2盒：170元)" : "(12入 3~6盒：210元)";
+                        } else if (q15Count > 0 && q12Count === 0) {
+                            shippingFee = (q15Count <= 2) ? 170 : 210;
+                            shippingDescText = (q15Count <= 2) ? "(15入 1~2盒：170元)" : "(15入 3~4盒：210元)";
+                        } else {
+                            shippingFee = 210;
+                            shippingDescText = "(宅配基本運費)";
+                        }
+                    }
+
+                    const addressValue = document.getElementById('receiverAddress').value;
+                    const remoteKeywords = ['宜蘭', '花蓮', '台東', '臺東'];
+                    if (remoteKeywords.some(keyword => addressValue.includes(keyword)) && !hasFreeShippingItem) {
+                        shippingFee += 10;
+                        shippingDescText += " + 宜花東加收10元";
+                    }
+                }
+
+                const totalAmount = productPrice + shippingFee;
+
+                document.getElementById('summaryCartText').innerText = selectedItems.length > 0 ? selectedItems.join('、') : '無產品';
+                document.getElementById('summaryProductPrice').innerText = productPrice.toLocaleString();
+                document.getElementById('summaryShippingFee').innerText = shippingFee.toLocaleString();
+                document.getElementById('shippingDesc').innerText = shippingDescText;
+                document.getElementById('totalAmount').innerText = totalAmount.toLocaleString();
+
+                return { productPrice, shippingFee, totalAmount, specText: selectedItems.join('、') };
+            }
+        }
+
+        document.getElementById('orderForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const cart = calculateCart();
+            const mode = document.getElementById('orderMode').value;
+
+            if (mode === 'pickup' && cart.totalPieces < 12) {
+                alert('❌ 現場自取總數量須滿 12 顆（含）以上方可預訂！未滿 12 顆請直接至門市購買。');
+                return;
+            }
+
+            if (!cart.specText) {
+                alert('❌ 請至少選購一項產品！');
+                return;
+            }
+
+            const orderId = 'ORD' + Math.floor(100000 + Math.random() * 900000);
+            const timeSlotValue = mode === 'pickup' ? document.getElementById('timeSlot').value : document.getElementById('deliveryTimeSlot').value;
+            
+            pendingOrderData = {
+                orderId: orderId,
+                mode: mode === 'pickup' ? '現場自取' : '宅配到府',
+                name: document.getElementById('buyerName').value,
+                phone: document.getElementById('buyerPhone').value,
+                address: mode === 'delivery' ? document.getElementById('receiverAddress').value : '現場自取',
+                date: document.getElementById('orderDate').value,
+                timeSlot: timeSlotValue,
+                productSpec: cart.specText,
+                totalPrice: cart.totalAmount,
+                status: '已成立',
+                orderTime: new Date().toLocaleString()
+            };
+
+            let modalHtml = `
+                <p>• <strong>訂購模式：</strong><span class="text-amber-700 font-bold">${pendingOrderData.mode}</span></p>
+                <p>• <strong>姓名/電話：</strong>${pendingOrderData.name} (${pendingOrderData.phone})</p>
+            `;
+            if (mode === 'delivery') {
+                const invoiceType = document.getElementById('invoiceType').value;
+                const taxId = document.getElementById('taxId').value;
+                modalHtml += `<p>• <strong>配送地址：</strong>${pendingOrderData.address}</p>`;
+                modalHtml += `<p>• <strong>發票選項：</strong>${invoiceType} ${invoiceType.includes('統編') ? '(統編: ' + taxId + ')' : ''}</p>`;
+            }
+            modalHtml += `
+                <p>• <strong>日期/時段：</strong>${pendingOrderData.date} ｜ ${pendingOrderData.timeSlot}</p>
+                <p>• <strong>訂購明細：</strong>${pendingOrderData.productSpec}</p>
+                <p class="pt-2 border-t font-bold text-amber-700 text-base">應付總金額：NT$ ${pendingOrderData.totalPrice.toLocaleString()}</p>
+            `;
+
+            document.getElementById('modalContent').innerHTML = modalHtml;
+            document.getElementById('confirmModal').classList.remove('hidden');
+        });
+
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').classList.add('hidden');
+        }
+
+        async function executeSubmit() {
+            closeConfirmModal();
+            const submitBtn = document.getElementById('submitBtn');
+            
+            submitBtn.disabled = true;
+            submitBtn.innerText = "資料傳送中，請稍候...";
+
+            try {
+                await fetch(GAS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(pendingOrderData)
+                });
+
+                document.getElementById('formBlock').classList.add('hidden');
+                document.getElementById('searchBlock').classList.add('hidden');
+
+                if (pendingOrderData.mode === '現場自取') {
+                    document.getElementById('finalOrderIdPickup').innerText = pendingOrderData.orderId;
+                    document.getElementById('finalPricePickup').innerText = pendingOrderData.totalPrice.toLocaleString();
+                    document.getElementById('successPagePickup').classList.remove('hidden');
+                } else {
+                    document.getElementById('finalOrderIdDelivery').innerText = pendingOrderData.orderId;
+                    document.getElementById('finalPriceDelivery').innerText = pendingOrderData.totalPrice.toLocaleString();
+                    document.getElementById('successPageDelivery').classList.remove('hidden');
+                }
+
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            } catch (error) {
+                alert('❌ 傳送失敗，請檢查網路連線或稍後再試！');
+                submitBtn.disabled = false;
+                submitBtn.innerText = "確認送出預訂";
+            }
+        }
+
+        async function searchOrder() {
+            const searchKey = document.getElementById('searchKey').value.trim();
+            const resultDiv = document.getElementById('searchResult');
+            
+            if (!searchKey) {
+                alert('請輸入查詢條件（訂單編號或手機號碼）！');
+                return;
+            }
+
+            resultDiv.classList.remove('hidden');
+            resultDiv.innerHTML = `<p class="text-gray-500 text-center text-xs">🔍 正在查詢中...</p>`;
+
+            try {
+                const response = await fetch(`${GAS_URL}?search=${encodeURIComponent(searchKey)}`);
+                const result = await response.json();
+
+                if (result.status === 'success' && result.data.length > 0) {
+                    let htmlContent = `<p class="font-bold text-gray-700 text-xs mb-2">✨ 找到 ${result.data.length} 筆相符訂單：</p>`;
+                    result.data.forEach(order => {
+                        htmlContent += `
+                            <div class="bg-white p-3 rounded-lg border border-gray-200 space-y-1.5 shadow-xs text-xs">
+                                <div class="flex justify-between items-center border-b border-gray-100 pb-1 font-bold text-amber-700">
+                                    <span>📌 訂單編號：${order.orderId}</span>
+                                    <span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded">${order.mode}</span>
+                                </div>
+                                <div><strong>姓名/聯絡人：</strong>${order.name} (${order.phone})</div>
+                                <div><strong>地址：</strong>${order.address}</div>
+                                <div><strong>日期/時段：</strong>${order.date} ｜ ${order.timeSlot}</div>
+                                <div><strong>預訂明細：</strong>${order.productSpec}</div>
+                                <div class="text-right font-bold text-amber-700 pt-1">應付總金額：NT$ ${Number(order.totalPrice).toLocaleString()}</div>
+                            </div>`;
+                    });
+                    resultDiv.innerHTML = htmlContent;
+                } else {
+                    resultDiv.innerHTML = `<p class="text-red-500 text-center font-medium text-xs">❌ 找不到相符的訂單紀錄。<br><span class="text-gray-400">（請確認輸入的訂單編號或手機號碼是否正確）</span></p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="text-red-500 text-center font-medium text-xs">❌ 查詢發生錯誤，請稍後再試。</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
