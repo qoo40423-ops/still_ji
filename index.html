@@ -21,6 +21,7 @@
                 <p class="font-bold text-amber-800 text-sm">✨ 產品特色與食用保存須知：</p>
                 <p>• <strong>成份說明：</strong>本產品使用<strong>植物油</strong>製作，<strong>蛋奶素可食用</strong>（不含豬油成份）。</p>
                 <p>• <strong>保存期限：</strong>常溫保存一個禮拜，產品上有註明其有效期限。</p>
+                <p>• <strong>提袋說明：</strong>6入宅配預設附贈塑膠背心袋，若有送禮需求可加購精美不織布提袋（$20/個）。</p>
             </div>
         </div>
 
@@ -209,6 +210,20 @@
                     </div>
                 </div>
 
+                <!-- 加購不織布提袋專區 (不論自取或宅配皆顯示，但拿掉燈泡備註) -->
+                <div id="bagSection" class="p-4 bg-amber-50/40 border border-amber-200 rounded-xl space-y-2">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-sm font-bold text-gray-800">🛍️ 加購精美不織布提袋</span>
+                            <span class="text-amber-700 text-xs font-bold ml-2">(NT$ 20 / 個)</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <input type="number" id="bagQty" min="0" value="0" oninput="calculateCart()" class="w-20 px-2 py-1 text-center border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm font-bold">
+                            <span class="text-xs text-gray-500">個</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 金額小計 -->
                 <div class="bg-amber-50/70 border border-amber-100 rounded-xl p-4 space-y-2 text-sm text-gray-700">
                     <div class="flex justify-between">
@@ -217,6 +232,10 @@
                     <div class="flex justify-between">
                         <span>商品總金額：</span>
                         <span class="font-bold">NT$ <span id="summaryProductPrice">0</span></span>
+                    </div>
+                    <div id="bagFeeRow" class="flex justify-between hidden">
+                        <span>提袋加購金額：</span>
+                        <span class="font-bold">NT$ <span id="summaryBagPrice">0</span></span>
                     </div>
                     <div id="shippingFeeRow" class="flex justify-between hidden">
                         <span>運費金額：</span>
@@ -450,17 +469,36 @@
             let selectedItems = [];
             const submitBtn = document.getElementById('submitBtn');
 
+            // 計算提袋加購（不論自取或宅配皆可計算）
+            let bagQty = parseInt(document.getElementById('bagQty').value) || 0;
+            let bagPrice = bagQty * 20;
+            const bagFeeRow = document.getElementById('bagFeeRow');
+
+            if (bagQty > 0) {
+                bagFeeRow.classList.remove('hidden');
+                document.getElementById('summaryBagPrice').innerText = bagPrice.toLocaleString();
+                selectedItems.push(`不織布提袋 × ${bagQty}個`);
+            } else {
+                bagFeeRow.classList.add('hidden');
+            }
+
+            let totalPiecesForPickup = 0;
+
             if (mode === 'pickup') {
                 const q6 = parseInt(document.getElementById('pickup_qty_6').value) || 0;
                 const q12 = parseInt(document.getElementById('pickup_qty_12').value) || 0;
                 const q15 = parseInt(document.getElementById('pickup_qty_15').value) || 0;
 
                 const totalPieces = (q6 * 6) + (q12 * 12) + (q15 * 15);
+                totalPiecesForPickup = totalPieces;
                 const pickupMinNotice = document.getElementById('pickupMinNotice');
 
-                if (q6 > 0) { productPrice += q6 * 300; selectedItems.push(`6入禮盒 × ${q6}盒`); }
-                if (q12 > 0) { productPrice += q12 * 600; selectedItems.push(`12入禮盒 × ${q12}盒`); }
-                if (q15 > 0) { productPrice += q15 * 750; selectedItems.push(`15入禮盒 × ${q15}盒`); }
+                let productList = [];
+                if (q6 > 0) { productPrice += q6 * 300; productList.push(`6入禮盒 × ${q6}盒`); }
+                if (q12 > 0) { productPrice += q12 * 600; productList.push(`12入禮盒 × ${q12}盒`); }
+                if (q15 > 0) { productPrice += q15 * 750; productList.push(`15入禮盒 × ${q15}盒`); }
+
+                selectedItems = productList.concat(selectedItems);
 
                 if (totalPieces > 0 && totalPieces < 12) {
                     pickupMinNotice.classList.remove('hidden');
@@ -475,19 +513,20 @@
                 }
 
                 document.getElementById('shippingFeeRow').classList.add('hidden');
-                const totalAmount = productPrice;
+                const totalAmount = productPrice + bagPrice;
 
-                document.getElementById('summaryCartText').innerText = selectedItems.length > 0 ? selectedItems.join('、') : '無產品';
+                document.getElementById('summaryCartText').innerText = productList.length > 0 || bagQty > 0 ? selectedItems.join('、') : '無產品';
                 document.getElementById('summaryProductPrice').innerText = productPrice.toLocaleString();
                 document.getElementById('totalAmount').innerText = totalAmount.toLocaleString();
 
-                return { productPrice, shippingFee: 0, totalAmount, specText: selectedItems.join('、'), totalPieces };
+                return { productPrice, bagPrice, shippingFee: 0, totalAmount, specText: selectedItems.join('、'), totalPieces };
 
             } else {
                 const checkboxes = document.querySelectorAll('input[name="productCheck"]');
                 let q12Count = 0;
                 let q15Count = 0;
                 let hasFreeShippingItem = false;
+                let productList = [];
 
                 checkboxes.forEach((cb) => {
                     const idStr = cb.id.replace('check_', '');
@@ -504,13 +543,13 @@
                         productPrice += (price * qty);
 
                         if (cb.id === 'check_1' || cb.id === 'check_2' || cb.id === 'check_3') {
-                            selectedItems.push(`${cb.value} × ${qty}組`);
+                            productList.push(`${cb.value} × ${qty}組`);
                             hasFreeShippingItem = true;
                         } else if (cb.id === 'check_12') {
-                            selectedItems.push(`12入禮盒 × ${qty}盒`);
+                            productList.push(`12入禮盒 × ${qty}盒`);
                             q12Count += qty;
                         } else if (cb.id === 'check_15') {
-                            selectedItems.push(`15入禮盒 × ${qty}盒`);
+                            productList.push(`15入禮盒 × ${qty}盒`);
                             q15Count += qty;
                         }
                     } else {
@@ -518,6 +557,8 @@
                         qtyInput.classList.add('bg-gray-100');
                     }
                 });
+
+                selectedItems = productList.concat(selectedItems);
 
                 const is12Free = (q12Count >= 7);
                 const is15Free = (q15Count >= 5);
@@ -528,7 +569,7 @@
                 const shippingFeeRow = document.getElementById('shippingFeeRow');
                 shippingFeeRow.classList.remove('hidden');
 
-                if (selectedItems.length > 0) {
+                if (productList.length > 0 || bagQty > 0) {
                     if (hasFreeShippingItem) {
                         shippingFee = 0;
                         shippingDescText = "(🎉 已達免運門檻)";
@@ -553,15 +594,15 @@
                     }
                 }
 
-                const totalAmount = productPrice + shippingFee;
+                const totalAmount = productPrice + bagPrice + shippingFee;
 
-                document.getElementById('summaryCartText').innerText = selectedItems.length > 0 ? selectedItems.join('、') : '無產品';
+                document.getElementById('summaryCartText').innerText = productList.length > 0 || bagQty > 0 ? selectedItems.join('、') : '無產品';
                 document.getElementById('summaryProductPrice').innerText = productPrice.toLocaleString();
                 document.getElementById('summaryShippingFee').innerText = shippingFee.toLocaleString();
                 document.getElementById('shippingDesc').innerText = shippingDescText;
                 document.getElementById('totalAmount').innerText = totalAmount.toLocaleString();
 
-                return { productPrice, shippingFee, totalAmount, specText: selectedItems.join('、') };
+                return { productPrice, bagPrice, shippingFee, totalAmount, specText: selectedItems.join('、') };
             }
         }
 
@@ -576,7 +617,7 @@
                 return;
             }
 
-            if (!cart.specText) {
+            if (!cart.specText || cart.specText === "") {
                 alert('❌ 請至少選購一項產品！');
                 return;
             }
