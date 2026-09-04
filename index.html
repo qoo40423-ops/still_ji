@@ -81,6 +81,8 @@
                         <label id="dateLabel" class="block text-sm font-medium text-gray-600 mb-1">取貨日期 *</label>
                         <input type="date" id="orderDate" min="2026-09-30" required onchange="validateDate()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
                         <p id="dateNoticeText" class="text-xs text-red-600 mt-1 font-medium hidden">⚠️ 宅配僅能選擇週一到週五的出貨日，請重新選擇！</p>
+                        <!-- 特定關閉日期的提示訊息 -->
+                        <p id="systemClosedNotice" class="text-xs text-red-600 mt-1 font-bold hidden">⚠️ 您選擇的日期為休息日或已滿單，請重新選擇其他日期！</p>
                         <!-- 宅配預計到貨時間提示 -->
                         <p id="estimatedArrival" class="text-xs text-amber-700 mt-1 font-bold hidden"></p>
                     </div>
@@ -210,8 +212,8 @@
                     </div>
                 </div>
 
-                <!-- 加購不織布提袋專區 (不論自取或宅配皆顯示，但拿掉燈泡備註) -->
-                <div id="bagSection" class="p-4 bg-amber-50/40 border border-amber-200 rounded-xl space-y-2">
+                <!-- 加購不織布提袋專區 (唯有當有選購 6 入時才會顯示) -->
+                <div id="bagSection" class="p-4 bg-amber-50/40 border border-amber-200 rounded-xl space-y-2 hidden">
                     <div class="flex items-center justify-between">
                         <div>
                             <span class="text-sm font-bold text-gray-800">🛍️ 加購精美不織布提袋</span>
@@ -335,6 +337,17 @@
 
     <script>
         const GAS_URL = "https://script.google.com/macros/s/AKfycbwyx3EajqWD110uda3X6ZdWLJ2byk9WLDac5OR54Fl-ZFgkqIJuC5ygOIj1Kl-GQRpQ/exec";
+        
+        // ==========================================
+        // 🛠️ 特定日期關閉設定（不想開放的日子）
+        // 您可以把不希望客人選的日期寫在下方（格式為 "YYYY-MM-DD"）
+        // 如果有多個日期，用逗號隔開，例如：["2026-10-01", "2026-10-05"]
+        const disabledDates = [
+            2026-09-30, 
+            // "2026-10-02"
+        ];
+        // ==========================================
+
         let pendingOrderData = null;
 
         function switchMode(mode) {
@@ -397,6 +410,8 @@
 
                 validateDate();
             }
+
+            validateDate();
             calculateCart();
         }
 
@@ -405,6 +420,7 @@
             const dateInput = document.getElementById('orderDate').value;
             const dateNoticeText = document.getElementById('dateNoticeText');
             const estimatedArrival = document.getElementById('estimatedArrival');
+            const systemClosedNotice = document.getElementById('systemClosedNotice');
             const submitBtn = document.getElementById('submitBtn');
 
             if (dateInput && dateInput < "2026-09-30") {
@@ -413,38 +429,54 @@
                 return;
             }
 
-            if (mode === 'delivery' && dateInput) {
-                let dObj1 = new Date(dateInput);
-                dObj1.setDate(dObj1.getDate() + 1);
-                let m1 = String(dObj1.getMonth() + 1).padStart(2, '0');
-                let d1 = String(dObj1.getDate()).padStart(2, '0');
-                let days = ['日', '一', '二', '三', '四', '五', '六'];
-                let wk1 = days[dObj1.getDay()];
+            let hasError = false;
 
-                let dObj2 = new Date(dateInput);
-                dObj2.setDate(dObj2.getDate() + 2);
-                let m2 = String(dObj2.getMonth() + 1).padStart(2, '0');
-                let d2 = String(dObj2.getDate()).padStart(2, '0');
-                let wk2 = days[dObj2.getDay()];
-
-                estimatedArrival.innerText = `📦 預計到貨日：${m1}/${d1}(${wk1}) ~ ${m2}/${d2}(${wk2}) 左右`;
-                estimatedArrival.classList.remove('hidden');
-
-                const dayOfWeek = new Date(dateInput).getDay();
-                if (dayOfWeek === 0 || dayOfWeek === 6) {
-                    dateNoticeText.classList.remove('hidden');
-                    submitBtn.disabled = true;
-                    submitBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
-                    submitBtn.classList.remove('bg-amber-600', 'hover:bg-amber-700');
+            if (dateInput) {
+                // 1. 檢查是否在手動關閉的名單中
+                if (disabledDates.includes(dateInput)) {
+                    systemClosedNotice.classList.remove('hidden');
+                    hasError = true;
                 } else {
-                    dateNoticeText.classList.add('hidden');
-                    submitBtn.disabled = false;
-                    submitBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
-                    submitBtn.classList.add('bg-amber-600', 'hover:bg-amber-700');
+                    systemClosedNotice.classList.add('hidden');
                 }
+
+                // 2. 宅配專屬：檢查是否為週末（六日）
+                if (mode === 'delivery') {
+                    const dayOfWeek = new Date(dateInput).getDay();
+                    if (dayOfWeek === 0 || dayOfWeek === 6) {
+                        dateNoticeText.classList.remove('hidden');
+                        hasError = true;
+                    } else {
+                        dateNoticeText.classList.add('hidden');
+                    }
+
+                    // 計算預估到貨日
+                    let dObj1 = new Date(dateInput);
+                    dObj1.setDate(dObj1.getDate() + 1);
+                    let m1 = String(dObj1.getMonth() + 1).padStart(2, '0');
+                    let d1 = String(dObj1.getDate()).padStart(2, '0');
+                    let days = ['日', '一', '二', '三', '四', '五', '六'];
+                    let wk1 = days[dObj1.getDay()];
+
+                    let dObj2 = new Date(dateInput);
+                    dObj2.setDate(dObj2.getDate() + 2);
+                    let m2 = String(dObj2.getMonth() + 1).padStart(2, '0');
+                    let d2 = String(dObj2.getDate()).padStart(2, '0');
+                    let wk2 = days[dObj2.getDay()];
+
+                    estimatedArrival.innerText = `📦 預計到貨日：${m1}/${d1}(${wk1}) ~ ${m2}/${d2}(${wk2}) 左右`;
+                    estimatedArrival.classList.remove('hidden');
+                } else {
+                    estimatedArrival.classList.add('hidden');
+                }
+            }
+
+            // 如果有任何違規，鎖定送出按鈕
+            if (hasError) {
+                submitBtn.disabled = true;
+                submitBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                submitBtn.classList.remove('bg-amber-600', 'hover:bg-amber-700');
             } else {
-                dateNoticeText.classList.add('hidden');
-                estimatedArrival.classList.add('hidden');
                 submitBtn.disabled = false;
                 submitBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
                 submitBtn.classList.add('bg-amber-600', 'hover:bg-amber-700');
@@ -469,20 +501,9 @@
             let selectedItems = [];
             const submitBtn = document.getElementById('submitBtn');
 
-            // 計算提袋加購（不論自取或宅配皆可計算）
-            let bagQty = parseInt(document.getElementById('bagQty').value) || 0;
-            let bagPrice = bagQty * 20;
-            const bagFeeRow = document.getElementById('bagFeeRow');
-
-            if (bagQty > 0) {
-                bagFeeRow.classList.remove('hidden');
-                document.getElementById('summaryBagPrice').innerText = bagPrice.toLocaleString();
-                selectedItems.push(`不織布提袋 × ${bagQty}個`);
-            } else {
-                bagFeeRow.classList.add('hidden');
-            }
-
+            let hasSixInchesItem = false; 
             let totalPiecesForPickup = 0;
+            const bagSection = document.getElementById('bagSection');
 
             if (mode === 'pickup') {
                 const q6 = parseInt(document.getElementById('pickup_qty_6').value) || 0;
@@ -494,7 +515,11 @@
                 const pickupMinNotice = document.getElementById('pickupMinNotice');
 
                 let productList = [];
-                if (q6 > 0) { productPrice += q6 * 300; productList.push(`6入禮盒 × ${q6}盒`); }
+                if (q6 > 0) { 
+                    productPrice += q6 * 300; 
+                    productList.push(`6入禮盒 × ${q6}盒`); 
+                    hasSixInchesItem = true; 
+                }
                 if (q12 > 0) { productPrice += q12 * 600; productList.push(`12入禮盒 × ${q12}盒`); }
                 if (q15 > 0) { productPrice += q15 * 750; productList.push(`15入禮盒 × ${q15}盒`); }
 
@@ -507,19 +532,8 @@
                     submitBtn.classList.remove('bg-amber-600', 'hover:bg-amber-700');
                 } else {
                     pickupMinNotice.classList.add('hidden');
-                    submitBtn.disabled = false;
-                    submitBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
-                    submitBtn.classList.add('bg-amber-600', 'hover:bg-amber-700');
+                    validateDate(); // 重新確認日期沒有被鎖定
                 }
-
-                document.getElementById('shippingFeeRow').classList.add('hidden');
-                const totalAmount = productPrice + bagPrice;
-
-                document.getElementById('summaryCartText').innerText = productList.length > 0 || bagQty > 0 ? selectedItems.join('、') : '無產品';
-                document.getElementById('summaryProductPrice').innerText = productPrice.toLocaleString();
-                document.getElementById('totalAmount').innerText = totalAmount.toLocaleString();
-
-                return { productPrice, bagPrice, shippingFee: 0, totalAmount, specText: selectedItems.join('、'), totalPieces };
 
             } else {
                 const checkboxes = document.querySelectorAll('input[name="productCheck"]');
@@ -545,6 +559,7 @@
                         if (cb.id === 'check_1' || cb.id === 'check_2' || cb.id === 'check_3') {
                             productList.push(`${cb.value} × ${qty}組`);
                             hasFreeShippingItem = true;
+                            hasSixInchesItem = true; 
                         } else if (cb.id === 'check_12') {
                             productList.push(`12入禮盒 × ${qty}盒`);
                             q12Count += qty;
@@ -569,7 +584,7 @@
                 const shippingFeeRow = document.getElementById('shippingFeeRow');
                 shippingFeeRow.classList.remove('hidden');
 
-                if (productList.length > 0 || bagQty > 0) {
+                if (productList.length > 0) {
                     if (hasFreeShippingItem) {
                         shippingFee = 0;
                         shippingDescText = "(🎉 已達免運門檻)";
@@ -593,27 +608,55 @@
                         shippingDescText += " + 宜花東加收10元";
                     }
                 }
-
-                const totalAmount = productPrice + bagPrice + shippingFee;
-
-                document.getElementById('summaryCartText').innerText = productList.length > 0 || bagQty > 0 ? selectedItems.join('、') : '無產品';
-                document.getElementById('summaryProductPrice').innerText = productPrice.toLocaleString();
                 document.getElementById('summaryShippingFee').innerText = shippingFee.toLocaleString();
                 document.getElementById('shippingDesc').innerText = shippingDescText;
-                document.getElementById('totalAmount').innerText = totalAmount.toLocaleString();
-
-                return { productPrice, bagPrice, shippingFee, totalAmount, specText: selectedItems.join('、') };
             }
+
+            // 控管加購提袋是否顯示
+            let bagQty = 0;
+            let bagPrice = 0;
+            const bagFeeRow = document.getElementById('bagFeeRow');
+
+            if (hasSixInchesItem) {
+                bagSection.classList.remove('hidden');
+                bagQty = parseInt(document.getElementById('bagQty').value) || 0;
+                bagPrice = bagQty * 20;
+
+                if (bagQty > 0) {
+                    bagFeeRow.classList.remove('hidden');
+                    document.getElementById('summaryBagPrice').innerText = bagPrice.toLocaleString();
+                    selectedItems.push(`不織布提袋 × ${bagQty}個`);
+                } else {
+                    bagFeeRow.classList.add('hidden');
+                }
+            } else {
+                bagSection.classList.add('hidden');
+                document.getElementById('bagQty').value = 0;
+                bagFeeRow.classList.add('hidden');
+            }
+
+            const shippingFeeFinal = mode === 'delivery' ? (parseInt(document.getElementById('summaryShippingFee').innerText.replace(/,/g, '')) || 0) : 0;
+            const totalAmount = productPrice + bagPrice + shippingFeeFinal;
+
+            document.getElementById('summaryCartText').innerText = selectedItems.length > 0 ? selectedItems.join('、') : '無產品';
+            document.getElementById('summaryProductPrice').innerText = productPrice.toLocaleString();
+            document.getElementById('totalAmount').innerText = totalAmount.toLocaleString();
         }
 
         document.getElementById('orderForm').addEventListener('submit', function(e) {
             e.preventDefault();
 
+            const dateInput = document.getElementById('orderDate').value;
+            if (disabledDates.includes(dateInput)) {
+                alert('❌ 您選擇的日期為休息日或已滿單，無法預訂！');
+                return;
+            }
+
             const cart = calculateCart();
             const mode = document.getElementById('orderMode').value;
 
             if (mode === 'pickup' && cart.totalPieces < 12) {
-                alert('❌ 現場自取總數量須滿 12 顆（含）以上方可預訂！未滿 12 顆請直接至門市購買。');
+                alert('❌ 現場自取總數量須滿 12 顆（含）以上方可預訂！');
                 return;
             }
 
