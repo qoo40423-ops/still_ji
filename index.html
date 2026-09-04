@@ -212,7 +212,7 @@
                     </div>
                 </div>
 
-                <!-- 加購不織布提袋專區 (唯有當有選購 6 入時才會顯示) -->
+                <!-- 加購不織布提袋專區 -->
                 <div id="bagSection" class="p-4 bg-amber-50/40 border border-amber-200 rounded-xl space-y-2 hidden">
                     <div class="flex items-center justify-between">
                         <div>
@@ -286,7 +286,7 @@
             </button>
         </div>
 
-        <!-- 成功頁面 (宅配 - 含匯款資訊) -->
+        <!-- 成功頁面 (宅配) -->
         <div id="successPageDelivery" class="hidden bg-white shadow-md rounded-2xl p-8 border border-amber-100 text-left space-y-5">
             <div class="text-center space-y-2">
                 <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-3xl mx-auto font-bold">✓</div>
@@ -338,15 +338,9 @@
     <script>
         const GAS_URL = "https://script.google.com/macros/s/AKfycbwyx3EajqWD110uda3X6ZdWLJ2byk9WLDac5OR54Fl-ZFgkqIJuC5ygOIj1Kl-GQRpQ/exec";
         
-        // ==========================================
-        // 🛠️ 特定日期關閉設定（不想開放的日子）
-        // 您可以把不希望客人選的日期寫在下方（格式為 "YYYY-MM-DD"）
-        // 如果有多個日期，用逗號隔開，例如：["2026-10-01", "2026-10-05"]
         const disabledDates = [
-            2026-09-30, 
-            // "2026-10-02"
+            // "2026-10-01", 
         ];
-        // ==========================================
 
         let pendingOrderData = null;
 
@@ -407,8 +401,6 @@
 
                 pickupProductBox.classList.add('hidden');
                 deliveryProductBox.classList.remove('hidden');
-
-                validateDate();
             }
 
             validateDate();
@@ -432,7 +424,6 @@
             let hasError = false;
 
             if (dateInput) {
-                // 1. 檢查是否在手動關閉的名單中
                 if (disabledDates.includes(dateInput)) {
                     systemClosedNotice.classList.remove('hidden');
                     hasError = true;
@@ -440,7 +431,6 @@
                     systemClosedNotice.classList.add('hidden');
                 }
 
-                // 2. 宅配專屬：檢查是否為週末（六日）
                 if (mode === 'delivery') {
                     const dayOfWeek = new Date(dateInput).getDay();
                     if (dayOfWeek === 0 || dayOfWeek === 6) {
@@ -450,7 +440,6 @@
                         dateNoticeText.classList.add('hidden');
                     }
 
-                    // 計算預估到貨日
                     let dObj1 = new Date(dateInput);
                     dObj1.setDate(dObj1.getDate() + 1);
                     let m1 = String(dObj1.getMonth() + 1).padStart(2, '0');
@@ -471,7 +460,6 @@
                 }
             }
 
-            // 如果有任何違規，鎖定送出按鈕
             if (hasError) {
                 submitBtn.disabled = true;
                 submitBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
@@ -495,44 +483,35 @@
             }
         }
 
-        function calculateCart() {
+        function getCartDetails() {
             const mode = document.getElementById('orderMode').value;
             let productPrice = 0;
             let selectedItems = [];
-            const submitBtn = document.getElementById('submitBtn');
-
-            let hasSixInchesItem = false; 
             let totalPiecesForPickup = 0;
-            const bagSection = document.getElementById('bagSection');
+            let hasSixInchesItem = false;
+            let bagQty = 0;
+            let bagPrice = 0;
 
             if (mode === 'pickup') {
                 const q6 = parseInt(document.getElementById('pickup_qty_6').value) || 0;
                 const q12 = parseInt(document.getElementById('pickup_qty_12').value) || 0;
                 const q15 = parseInt(document.getElementById('pickup_qty_15').value) || 0;
 
-                const totalPieces = (q6 * 6) + (q12 * 12) + (q15 * 15);
-                totalPiecesForPickup = totalPieces;
+                totalPiecesForPickup = (q6 * 6) + (q12 * 12) + (q15 * 15);
                 const pickupMinNotice = document.getElementById('pickupMinNotice');
 
                 let productList = [];
-                if (q6 > 0) { 
-                    productPrice += q6 * 300; 
-                    productList.push(`6入禮盒 × ${q6}盒`); 
-                    hasSixInchesItem = true; 
-                }
+                if (q6 > { value: 0 }.value) { } // 預留
+                if (q6 > 0) { productPrice += q6 * 300; productList.push(`6入禮盒 × ${q6}盒`); hasSixInchesItem = true; }
                 if (q12 > 0) { productPrice += q12 * 600; productList.push(`12入禮盒 × ${q12}盒`); }
                 if (q15 > 0) { productPrice += q15 * 750; productList.push(`15入禮盒 × ${q15}盒`); }
 
-                selectedItems = productList.concat(selectedItems);
+                selectedItems = productList;
 
-                if (totalPieces > 0 && totalPieces < 12) {
+                if (totalPiecesForPickup > 0 && totalPiecesForPickup < 12) {
                     pickupMinNotice.classList.remove('hidden');
-                    submitBtn.disabled = true;
-                    submitBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
-                    submitBtn.classList.remove('bg-amber-600', 'hover:bg-amber-700');
                 } else {
                     pickupMinNotice.classList.add('hidden');
-                    validateDate(); // 重新確認日期沒有被鎖定
                 }
 
             } else {
@@ -547,11 +526,8 @@
                     const qtyInput = document.getElementById(`qty_${idStr}`);
 
                     if (cb.checked) {
-                        qtyInput.disabled = false;
-                        qtyInput.classList.remove('bg-gray-100');
-                        
                         let qty = parseInt(qtyInput.value);
-                        if (isNaN(qty) || qty < 1) { qty = 1; qtyInput.value = 1; }
+                        if (isNaN(qty) || qty < 1) { qty = 1; }
 
                         const price = parseInt(cb.getAttribute('data-price'));
                         productPrice += (price * qty);
@@ -559,7 +535,7 @@
                         if (cb.id === 'check_1' || cb.id === 'check_2' || cb.id === 'check_3') {
                             productList.push(`${cb.value} × ${qty}組`);
                             hasFreeShippingItem = true;
-                            hasSixInchesItem = true; 
+                            hasSixInchesItem = true;
                         } else if (cb.id === 'check_12') {
                             productList.push(`12入禮盒 × ${qty}盒`);
                             q12Count += qty;
@@ -567,23 +543,15 @@
                             productList.push(`15入禮盒 × ${qty}盒`);
                             q15Count += qty;
                         }
-                    } else {
-                        qtyInput.disabled = true;
-                        qtyInput.classList.add('bg-gray-100');
                     }
                 });
 
-                selectedItems = productList.concat(selectedItems);
+                selectedItems = productList;
 
-                const is12Free = (q12Count >= 7);
-                const is15Free = (q15Count >= 5);
-                if (is12Free || is15Free) { hasFreeShippingItem = true; }
+                if (q12Count >= 7 || q15Count >= 5) { hasFreeShippingItem = true; }
 
                 let shippingFee = 0;
                 let shippingDescText = "";
-                const shippingFeeRow = document.getElementById('shippingFeeRow');
-                shippingFeeRow.classList.remove('hidden');
-
                 if (productList.length > 0) {
                     if (hasFreeShippingItem) {
                         shippingFee = 0;
@@ -591,13 +559,10 @@
                     } else {
                         if (q12Count > 0 && q15Count === 0) {
                             shippingFee = (q12Count <= 2) ? 170 : 210;
-                            shippingDescText = (q12Count <= 2) ? "(12入 1~2盒：170元)" : "(12入 3~6盒：210元)";
                         } else if (q15Count > 0 && q12Count === 0) {
                             shippingFee = (q15Count <= 2) ? 170 : 210;
-                            shippingDescText = (q15Count <= 2) ? "(15入 1~2盒：170元)" : "(15入 3~4盒：210元)";
                         } else {
                             shippingFee = 210;
-                            shippingDescText = "(宅配基本運費)";
                         }
                     }
 
@@ -605,27 +570,73 @@
                     const remoteKeywords = ['宜蘭', '花蓮', '台東', '臺東'];
                     if (remoteKeywords.some(keyword => addressValue.includes(keyword)) && !hasFreeShippingItem) {
                         shippingFee += 10;
-                        shippingDescText += " + 宜花東加收10元";
                     }
                 }
                 document.getElementById('summaryShippingFee').innerText = shippingFee.toLocaleString();
-                document.getElementById('shippingDesc').innerText = shippingDescText;
             }
 
-            // 控管加購提袋是否顯示
-            let bagQty = 0;
-            let bagPrice = 0;
-            const bagFeeRow = document.getElementById('bagFeeRow');
-
             if (hasSixInchesItem) {
-                bagSection.classList.remove('hidden');
                 bagQty = parseInt(document.getElementById('bagQty').value) || 0;
                 bagPrice = bagQty * 20;
-
                 if (bagQty > 0) {
+                    selectedItems.push(`不織布提袋 × ${bagQty}个`);
+                }
+            }
+
+            const shippingFeeFinal = mode === 'delivery' ? (parseInt(document.getElementById('summaryShippingFee').innerText.replace(/,/g, '')) || 0) : 0;
+            const totalAmount = productPrice + bagPrice + shippingFeeFinal;
+
+            return {
+                specText: selectedItems.join('、'),
+                totalPieces: totalPiecesForPickup,
+                productPrice: productPrice,
+                bagPrice: bagPrice,
+                shippingFee: shippingFeeFinal,
+                totalAmount: totalAmount
+            };
+        }
+
+        function calculateCart() {
+            const mode = document.getElementById('orderMode').value;
+            const cart = getCartDetails();
+            const bagSection = document.getElementById('bagSection');
+            const bagFeeRow = document.getElementById('bagFeeRow');
+            const shippingFeeRow = document.getElementById('shippingFeeRow');
+            const submitBtn = document.getElementById('submitBtn');
+
+            // 處理介面顯示
+            let hasSix = false;
+            if (mode === 'pickup') {
+                const q6 = parseInt(document.getElementById('pickup_qty_6').value) || 0;
+                if (q6 > 0) hasSix = true;
+            } else {
+                const checkboxes = document.querySelectorAll('input[name="productCheck"]');
+                checkboxes.forEach((cb) => {
+                    const idStr = cb.id.replace('check_', '');
+                    const qtyInput = document.getElementById(`qty_${idStr}`);
+                    if (cb.checked) {
+                        qtyInput.disabled = false;
+                        qtyInput.classList.remove('bg-gray-100');
+                        if (cb.id === 'check_1' || cb.id === 'check_2' || cb.id === 'check_3' || cb.id === 'check_12' || cb.id === 'check_15') {
+                            // 簡單判斷是否有選 6入相關
+                        }
+                    } else {
+                        qtyInput.disabled = true;
+                        qtyInput.classList.add('bg-gray-100');
+                    }
+                });
+                // 宅配只要有勾選產品就允許顯示提袋
+                if (cart.specText.includes('6入')) {
+                    hasSix = true;
+                }
+                shippingFeeRow.classList.remove('hidden');
+            }
+
+            if (hasSix) {
+                bagSection.classList.remove('hidden');
+                if (cart.bagPrice > 0) {
                     bagFeeRow.classList.remove('hidden');
-                    document.getElementById('summaryBagPrice').innerText = bagPrice.toLocaleString();
-                    selectedItems.push(`不織布提袋 × ${bagQty}個`);
+                    document.getElementById('summaryBagPrice').innerText = cart.bagPrice.toLocaleString();
                 } else {
                     bagFeeRow.classList.add('hidden');
                 }
@@ -635,12 +646,9 @@
                 bagFeeRow.classList.add('hidden');
             }
 
-            const shippingFeeFinal = mode === 'delivery' ? (parseInt(document.getElementById('summaryShippingFee').innerText.replace(/,/g, '')) || 0) : 0;
-            const totalAmount = productPrice + bagPrice + shippingFeeFinal;
-
-            document.getElementById('summaryCartText').innerText = selectedItems.length > 0 ? selectedItems.join('、') : '無產品';
-            document.getElementById('summaryProductPrice').innerText = productPrice.toLocaleString();
-            document.getElementById('totalAmount').innerText = totalAmount.toLocaleString();
+            document.getElementById('summaryCartText').innerText = cart.specText !== "" ? cart.specText : '無產品';
+            document.getElementById('summaryProductPrice').innerText = cart.productPrice.toLocaleString();
+            document.getElementById('totalAmount').innerText = cart.totalAmount.toLocaleString();
         }
 
         document.getElementById('orderForm').addEventListener('submit', function(e) {
@@ -652,7 +660,7 @@
                 return;
             }
 
-            const cart = calculateCart();
+            const cart = getCartDetails();
             const mode = document.getElementById('orderMode').value;
 
             if (mode === 'pickup' && cart.totalPieces < 12) {
