@@ -501,7 +501,6 @@
                 const pickupMinNotice = document.getElementById('pickupMinNotice');
 
                 let productList = [];
-                if (q6 > { value: 0 }.value) { } // 預留
                 if (q6 > 0) { productPrice += q6 * 300; productList.push(`6入禮盒 × ${q6}盒`); hasSixInchesItem = true; }
                 if (q12 > 0) { productPrice += q12 * 600; productList.push(`12入禮盒 × ${q12}盒`); }
                 if (q15 > 0) { productPrice += q15 * 750; productList.push(`15入禮盒 × ${q15}盒`); }
@@ -518,7 +517,7 @@
                 const checkboxes = document.querySelectorAll('input[name="productCheck"]');
                 let q12Count = 0;
                 let q15Count = 0;
-                let hasFreeShippingItem = false;
+                let hasBoxFreeShipping = false;
                 let productList = [];
 
                 checkboxes.forEach((cb) => {
@@ -534,7 +533,7 @@
 
                         if (cb.id === 'check_1' || cb.id === 'check_2' || cb.id === 'check_3') {
                             productList.push(`${cb.value} × ${qty}組`);
-                            hasFreeShippingItem = true;
+                            hasBoxFreeShipping = true;
                             hasSixInchesItem = true;
                         } else if (cb.id === 'check_12') {
                             productList.push(`12入禮盒 × ${qty}盒`);
@@ -548,27 +547,33 @@
 
                 selectedItems = productList;
 
-                if (q12Count >= 7 || q15Count >= 5) { hasFreeShippingItem = true; }
+                // 獨立計算一般禮盒是否達免運門檻 (12入>=7盒 或 15入>=5盒)
+                let regularFreeShipping = (q12Count >= 7 || q15Count >= 5);
+                let totalRegularBoxes = q12Count + q15Count;
 
                 let shippingFee = 0;
-                let shippingDescText = "";
                 if (productList.length > 0) {
-                    if (hasFreeShippingItem) {
-                        shippingFee = 0;
-                        shippingDescText = "(🎉 已達免運門檻)";
-                    } else {
-                        if (q12Count > 0 && q15Count === 0) {
-                            shippingFee = (q12Count <= 2) ? 170 : 210;
-                        } else if (q15Count > 0 && q12Count === 0) {
-                            shippingFee = (q15Count <= 2) ? 170 : 210;
+                    if (totalRegularBoxes > 0) {
+                        if (regularFreeShipping) {
+                            shippingFee = 0;
                         } else {
-                            shippingFee = 210;
+                            if (q15Count > 0 && q12Count === 0) {
+                                shippingFee = (q15Count <= 2) ? 170 : 210; // 15入：1~2盒170，3~4盒210
+                            } else if (q12Count > 0 && q15Count === 0) {
+                                shippingFee = (q12Count <= 2) ? 170 : 210; // 12入：1~2盒170，3~6盒210
+                            } else {
+                                shippingFee = (totalRegularBoxes <= 2) ? 170 : 210; // 混合
+                            }
                         }
+                    } else {
+                        // 若只有箱購免運方案，則為 0 元
+                        shippingFee = 0;
                     }
 
+                    // 宜花東地區加價（僅在有產生基本運費時加上）
                     const addressValue = document.getElementById('receiverAddress').value;
                     const remoteKeywords = ['宜蘭', '花蓮', '台東', '臺東'];
-                    if (remoteKeywords.some(keyword => addressValue.includes(keyword)) && !hasFreeShippingItem) {
+                    if (remoteKeywords.some(keyword => addressValue.includes(keyword)) && shippingFee > 0) {
                         shippingFee += 10;
                     }
                 }
@@ -579,7 +584,7 @@
                 bagQty = parseInt(document.getElementById('bagQty').value) || 0;
                 bagPrice = bagQty * 20;
                 if (bagQty > 0) {
-                    selectedItems.push(`不織布提袋 × ${bagQty}个`);
+                    selectedItems.push(`不織布提袋 × ${bagQty}個`);
                 }
             }
 
@@ -602,9 +607,7 @@
             const bagSection = document.getElementById('bagSection');
             const bagFeeRow = document.getElementById('bagFeeRow');
             const shippingFeeRow = document.getElementById('shippingFeeRow');
-            const submitBtn = document.getElementById('submitBtn');
 
-            // 處理介面顯示
             let hasSix = false;
             if (mode === 'pickup') {
                 const q6 = parseInt(document.getElementById('pickup_qty_6').value) || 0;
@@ -617,15 +620,11 @@
                     if (cb.checked) {
                         qtyInput.disabled = false;
                         qtyInput.classList.remove('bg-gray-100');
-                        if (cb.id === 'check_1' || cb.id === 'check_2' || cb.id === 'check_3' || cb.id === 'check_12' || cb.id === 'check_15') {
-                            // 簡單判斷是否有選 6入相關
-                        }
                     } else {
                         qtyInput.disabled = true;
                         qtyInput.classList.add('bg-gray-100');
                     }
                 });
-                // 宅配只要有勾選產品就允許顯示提袋
                 if (cart.specText.includes('6入')) {
                     hasSix = true;
                 }
@@ -676,6 +675,11 @@
             const orderId = 'ORD' + Math.floor(100000 + Math.random() * 900000);
             const timeSlotValue = mode === 'pickup' ? document.getElementById('timeSlot').value : document.getElementById('deliveryTimeSlot').value;
             
+            // 組織送到後端試算表的資料（包含統編）
+            const invoiceType = mode === 'delivery' ? document.getElementById('invoiceType').value : '無';
+            const taxId = mode === 'delivery' ? document.getElementById('taxId').value : '';
+            const finalInvoiceInfo = invoiceType + (taxId ? ` (${taxId})` : '');
+
             pendingOrderData = {
                 orderId: orderId,
                 mode: mode === 'pickup' ? '現場自取' : '宅配到府',
@@ -685,6 +689,7 @@
                 date: document.getElementById('orderDate').value,
                 timeSlot: timeSlotValue,
                 productSpec: cart.specText,
+                invoiceInfo: finalInvoiceInfo, // 包含發票與統編
                 totalPrice: cart.totalAmount,
                 status: '已成立',
                 orderTime: new Date().toLocaleString()
@@ -695,10 +700,8 @@
                 <p>• <strong>姓名/電話：</strong>${pendingOrderData.name} (${pendingOrderData.phone})</p>
             `;
             if (mode === 'delivery') {
-                const invoiceType = document.getElementById('invoiceType').value;
-                const taxId = document.getElementById('taxId').value;
                 modalHtml += `<p>• <strong>配送地址：</strong>${pendingOrderData.address}</p>`;
-                modalHtml += `<p>• <strong>發票選項：</strong>${invoiceType} ${invoiceType.includes('統編') ? '(統編: ' + taxId + ')' : ''}</p>`;
+                modalHtml += `<p>• <strong>發票選項：</strong>${finalInvoiceInfo}</p>`;
             }
             modalHtml += `
                 <p>• <strong>日期/時段：</strong>${pendingOrderData.date} ｜ ${pendingOrderData.timeSlot}</p>
