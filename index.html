@@ -81,9 +81,7 @@
                         <label id="dateLabel" class="block text-sm font-medium text-gray-600 mb-1">取貨日期 *</label>
                         <input type="date" id="orderDate" required onchange="validateDate()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
                         <p id="dateNoticeText" class="text-xs text-red-600 mt-1 font-medium hidden">⚠️ 宅配僅能選擇週一到週五的出貨日，請重新選擇！</p>
-                        <!-- 特定關閉日期的提示訊息 -->
                         <p id="systemClosedNotice" class="text-xs text-red-600 mt-1 font-bold hidden">⚠️ 您選擇的日期為休息日或已滿單，請重新選擇其他日期！</p>
-                        <!-- 宅配預計到貨時間提示 -->
                         <p id="estimatedArrival" class="text-xs text-amber-700 mt-1 font-bold hidden"></p>
                     </div>
                     
@@ -118,9 +116,8 @@
 
                 <div id="deliveryNotice" class="hidden bg-orange-50 border border-orange-200 rounded-xl p-3 text-xs text-orange-800 space-y-1">
                     <p class="font-bold">⚠️ 宅配注意事項：</p>
-                    <p>• 希望配達日期不等於實際到貨日期。</p>
-                    <p>• 恕不負責運送端之延誤及損失（若可接受再填單）。</p>
-                    <p>• 達免運門檻（或箱購方案）之訂單，宜花東地區同樣免運費。</p>
+                    <p>• 超過中午 12:00 成立之宅配訂單，最早出貨日為後天起算。</p>
+                    <p>• 希望配達日期不等於實際到貨日期，恕不負責運送端之延誤。</p>
                 </div>
 
                 <!-- 產品規格 -->
@@ -160,7 +157,7 @@
                                 <span class="text-xs text-gray-500">盒</span>
                             </div>
                         </div>
-                        <p id="pickupMinNotice" class="text-xs text-red-600 font-bold hidden">⚠️ 現場自取總數量須滿 12 顆（含）以上方可預訂（未滿 12 顆請直接至門市購買）！</p>
+                        <p id="pickupMinNotice" class="text-xs text-red-600 font-bold hidden">⚠️ 現場自取總數量須滿 12 顆（含）以上方可預訂！</p>
                     </div>
 
                     <div id="deliveryProductBox" class="hidden space-y-3">
@@ -259,9 +256,7 @@
         <div id="confirmModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl border border-gray-100">
                 <h3 class="text-xl font-bold text-amber-700 border-b pb-2">📋 請再次確認您的訂單資訊</h3>
-                <div id="modalContent" class="space-y-2 text-sm text-gray-700 bg-gray-50 p-4 rounded-xl border border-gray-200">
-                    <!-- 動態填入確認資訊 -->
-                </div>
+                <div id="modalContent" class="space-y-2 text-sm text-gray-700 bg-gray-50 p-4 rounded-xl border border-gray-200"></div>
                 <div class="flex gap-3 pt-2">
                     <button type="button" onclick="closeConfirmModal()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2.5 rounded-xl transition cursor-pointer">
                         返回修改
@@ -343,21 +338,40 @@
 
         let pendingOrderData = null;
 
-        // 初始化：設定日期欄位最小選擇日為「明天」
+        // 初始化：根據當前時間與模式設定最小出貨/取貨日
         window.addEventListener('DOMContentLoaded', () => {
-            const today = new Date();
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            const yyyy = tomorrow.getFullYear();
-            const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
-            const dd = String(tomorrow.getDate()).padStart(2, '0');
-            const tomorrowStr = `${yyyy}-${mm}-${dd}`;
+            updateMinDateAndValue();
+        });
+
+        function updateMinDateAndValue() {
+            const now = new Date();
+            const currentHour = now.getHours();
+            const mode = document.getElementById('orderMode').value;
+
+            let targetDate = new Date(now);
+            
+            if (mode === 'delivery') {
+                // 超過中午 12:00，宅配最早出貨日為當天 + 2 天；否則為當天 + 1 天
+                if (currentHour >= 12) {
+                    targetDate.setDate(targetDate.getDate() + 2);
+                } else {
+                    targetDate.setDate(targetDate.getDate() + 1);
+                }
+            } else {
+                // 自取固定最早為明天
+                targetDate.setDate(targetDate.getDate() + 1);
+            }
+
+            const yyyy = targetDate.getFullYear();
+            const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+            const dd = String(targetDate.getDate()).padStart(2, '0');
+            const minDateStr = `${yyyy}-${mm}-${dd}`;
 
             const orderDateInput = document.getElementById('orderDate');
-            orderDateInput.min = tomorrowStr;
-            orderDateInput.value = tomorrowStr;
+            orderDateInput.min = minDateStr;
+            orderDateInput.value = minDateStr;
             validateDate();
-        });
+        }
 
         function switchMode(mode) {
             const tabPickup = document.getElementById('tabPickup');
@@ -418,6 +432,7 @@
                 deliveryProductBox.classList.remove('hidden');
             }
 
+            updateMinDateAndValue();
             validateDate();
             calculateCart();
         }
@@ -526,7 +541,7 @@
                 const checkboxes = document.querySelectorAll('input[name="productCheck"]');
                 let q12Count = 0;
                 let q15Count = 0;
-                let hasCheck1 = false; // 6入x4盒 ($1350)
+                let hasCheck1 = false;
                 let productList = [];
 
                 checkboxes.forEach((cb) => {
@@ -538,8 +553,6 @@
                         if (isNaN(qty) || qty < 1) { qty = 1; }
 
                         const price = parseInt(cb.getAttribute('data-price'));
-                        
-                        // 💡 維持原價加總商品金額（不扣除運費，確保總金額正確）
                         productPrice += (price * qty);
 
                         if (cb.id === 'check_1') {
@@ -561,14 +574,12 @@
 
                 selectedItems = productList;
 
-                // 獨立計算一般禮盒是否達免運門檻 (12入>=7盒 或 15入>=5盒)
                 let regularFreeShipping = (q12Count >= 7 || q15Count >= 5);
                 let totalRegularBoxes = q12Count + q15Count;
 
                 let shippingFee = 0;
                 if (productList.length > 0) {
                     if (regularFreeShipping) {
-                        // 💡 關鍵修正：若 12入或15入已達免運門檻，整筆訂單直接免運（運費為 0）
                         shippingFee = 0;
                     } else if (totalRegularBoxes > 0) {
                         if (hasCheck1) {
@@ -583,10 +594,9 @@
                             }
                         }
                     } else {
-                        shippingFee = 0; // 只有箱購方案，本身已含運
+                        shippingFee = 0;
                     }
 
-                    // 宜花東地區加價
                     const addressValue = document.getElementById('receiverAddress').value;
                     const remoteKeywords = ['宜蘭', '花蓮', '台東', '臺東'];
                     if (remoteKeywords.some(keyword => addressValue.includes(keyword)) && shippingFee > 0) {
